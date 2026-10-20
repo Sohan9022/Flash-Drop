@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlashDrop | High-Concurrency Limited Release Engine</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #090a0f;
+    }
+    .font-heading {
+      font-family: 'Outfit', sans-serif;
+    }
+    .font-mono-code {
+      font-family: 'Space Grotesk', monospace;
+    }
+    .neon-glow-red {
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+    }
+    .neon-glow-cyan {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+    }
+    .glass-card {
+      background: rgba(18, 20, 29, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .gradient-fire {
+      background: linear-gradient(135deg, #ff4b4b 0%, #ff8533 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col selection:bg-rose-500 selection:text-white">
+
+  <!-- NAVBAR -->
+  <nav class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-900/40">
+          <i data-lucide="zap" class="w-5 h-5 text-white fill-current"></i>
+        </div>
+        <div>
+          <span class="font-heading font-extrabold text-xl tracking-tight text-white">FLASH<span class="text-rose-500">DROP</span></span>
+          <span class="hidden sm:inline-block ml-2 text-xs font-mono-code bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">DBMS Engine</span>
+        </div>
+      </div>
+
+      <!-- Right Nav Status & User Switcher -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+          <span class="text-slate-400">Current Buyer:</span>
+          <select id="userSelector" class="bg-transparent font-medium text-rose-400 focus:outline-none cursor-pointer">
+            <option value="1" class="bg-slate-900 text-white">Alex Chen (ID: 1)</option>
+            <option value="2" class="bg-slate-900 text-white">Sarah Connor (ID: 2)</option>
+            <option value="3" class="bg-slate-900 text-white">Marcus Vance (ID: 3)</option>
+            <option value="4" class="bg-slate-900 text-white">Elena Rostova (ID: 4)</option>
+            <option value="5" class="bg-slate-900 text-white">Liam Smith (ID: 5)</option>
+          </select>
+        </div>
+
+        <button onclick="switchTab('simulation')" class="hidden md:flex items-center space-x-1.5 text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg transition">
+          <i data-lucide="cpu" class="w-4 h-4"></i>
+          <span>Stress Simulator</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8">
+
+    <!-- SUB-NAV / TAB SWITCHER -->
+    <div class="flex border-b border-slate-800 gap-6 text-sm font-medium">
+      <button onclick="switchTab('shop')" id="tab-btn-shop" class="pb-3 border-b-2 border-rose-500 text-white flex items-center space-x-2">
+        <i data-lucide="flame" class="w-4 h-4 text-rose-500"></i>
+        <span>Live Drops</span>
+      </button>
+      <button onclick="switchTab('simulation')" id="tab-btn-simulation" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i data-lucide="activity" class="w-4 h-4"></i>
+        <span>Concurrency Race Tester</span>
+      </button>
+      <button onclick="switchTab('admin')" id="tab-btn-admin" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i data-lucide="database" class="w-4 h-4"></i>
+        <span>DBMS Views & Audit Trail</span>
+      </button>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: LIVE DROPS (THE SHOPPING EXPERIENCE) -->
+    <!-- =================================================================== -->
+    <section id="tab-shop" class="space-y-6">
+      
+      <!-- HERO ANNOUNCEMENT BANNER -->
+      <div class="relative overflow-hidden rounded-2xl glass-card border border-rose-500/20 p-6 md:p-8 bg-gradient-to-r from-slate-950 via-slate-900 to-rose-950/20">
+        <span>Live Drops</span>
+      </button>
+      <button onclick="switchTab('simulation')" id="tab-btn-simulation" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i data-lucide="activity" class="w-4 h-4"></i>
+        <span>Concurrency Race Tester</span>
+      </button>
+      <button onclick="switchTab('admin')" id="tab-btn-admin" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i data-lucide="database" class="w-4 h-4"></i>
+        <span>DBMS Views & Audit Trail</span>
+      </button>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: LIVE DROPS (THE SHOPPING EXPERIENCE) -->
+    <!-- =================================================================== -->
+    <section id="tab-shop" class="space-y-6">
+      
+      <!-- HERO ANNOUNCEMENT BANNER -->
+      <div class="relative overflow-hidden rounded-2xl glass-card border border-rose-500/20 p-6 md:p-8 bg-gradient-to-r from-slate-950 via-slate-900 to-rose-950/20">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div class="space-y-2">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono-code font-semibold tracking-wide">
+              <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+              <span>DROP #1 IS LIVE NOW</span>
+            </div>
+            <h1 class="font-heading text-3xl md:text-5xl font-black tracking-tight text-white">
+              Midnight Cyberpunk Sneaker Drop
+            </h1>
+            <p class="text-slate-400 text-sm max-w-xl">
+              Strictly limited allocation. High concurrency locking enabled (<code class="text-rose-400 bg-slate-900 px-1 py-0.5 rounded text-xs">SELECT ... FOR UPDATE</code>). 5-minute hold per checkout.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
+            <div class="text-center px-2">
+              <div class="text-xs text-slate-400 font-mono-code uppercase">Status</div>
+              <div class="text-emerald-400 font-bold text-sm tracking-wide mt-0.5 flex items-center justify-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span> ACTIVE
+              </div>
+            </div>
+            <div class="h-8 w-px bg-slate-800"></div>
+            <div class="text-center px-2">
+              <div class="text-xs text-slate-400 font-mono-code uppercase">Time Left</div>
+              <div id="dropTimer" class="font-mono-code font-bold text-white text-base mt-0.5">01:48:32</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVE PRODUCTS GRID -->
+      <div id="productsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Injected via JS -->
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: CONCURRENCY RACE CONDITION TESTER -->
+    <!-- =================================================================== -->
+    <section id="tab-simulation" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6 md:p-8 space-y-6 border border-slate-800">
+        <div>
+          <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono-code font-semibold mb-2">
+            <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+            <span>ACID TRANSACTION TESTER</span>
+          </div>
+          <h2 class="font-heading text-2xl md:text-3xl font-bold text-white">Simulate Split-Second Flash Drop Rush</h2>
+          <p class="text-slate-400 text-sm mt-1 max-w-2xl">
+            This tool fires <strong class="text-white">multiple simultaneous asynchronous purchase requests</strong> against the exact same product ID at the same millisecond to test pessimistic row-level locking.
+          </p>
+        </div>
+
+        <!-- Simulator Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Target Product</label>
+            <select id="simProduct" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500">
+              <option value="1">Cyberpunk Runner X9 (Current Stock: Limited)</option>
+              <option value="2">Neo-Tokyo Street High-Top</option>
+              <option value="4">Holographic Oversized Hoodie</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Concurrent Buyers Count</label>
+            <select id="simBuyers" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500">
+              <option value="10">10 Buyers</option>
+              <option value="20" selected>20 Buyers (Simultaneous)</option>
+              <option value="35">35 Buyers (High Rush)</option>
+              <option value="50">50 Buyers (Maximum Load)</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="btnRunSim" onclick="executeConcurrencySimulation()" class="w-full bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-semibold py-2 px-4 rounded-lg text-sm flex items-center justify-center space-x-2 transition shadow-lg shadow-rose-950/50">
+              <i data-lucide="zap" class="w-4 h-4 fill-current"></i>
+              <span>Fire Concurrent Rush</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Simulation Results Console -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-xs font-mono-code text-slate-400">
+            <span>REAL-TIME TRANSACTION STREAM</span>
+            <span id="simSummaryBadge" class="hidden text-emerald-400 font-bold"></span>
+          </div>
+          <div id="simConsole" class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono-code text-xs text-slate-300 h-80 overflow-y-auto space-y-1.5 shadow-inner">
+            <div class="text-slate-500">// Ready. Select parameters and click 'Fire Concurrent Rush' to start race condition verification.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 3: DBMS VIEWS & AUDIT TRAIL -->
+    <!-- =================================================================== -->
+    <section id="tab-admin" class="hidden space-y-6">
+      
+      <!-- Top Metrics from Views -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- View 1: v_trending_products -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-heading font-bold text-lg text-white flex items-center gap-2">
+              <i data-lucide="trending-up" class="w-5 h-5 text-rose-500"></i>
+              <span>v_trending_products</span>
+            </h3>
+            <span class="text-xs font-mono-code bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800">VIEW</span>
+          </div>
+          <p class="text-xs text-slate-400">Computed live sales velocity, revenue and claim percentages.</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs font-mono-code">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400">
+                  <th class="pb-2">Product</th>
+                  <th class="pb-2">Stock</th>
+                  <th class="pb-2">Claimed</th>
+                  <th class="pb-2">Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="trendingTableBody" class="divide-y divide-slate-800/60">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View 2: Sweep Expired Carts Action -->
+        <div class="glass-card rounded-xl p-5 border border-slate-800 space-y-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <h3 class="font-heading font-bold text-lg text-white flex items-center gap-2">
+                <i data-lucide="timer" class="w-5 h-5 text-amber-500"></i>
+                <span>Cart Sweeper Trigger</span>
+              </h3>
+              <span class="text-xs font-mono-code bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-800">EVENT</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">
+              The database automatically runs <code class="text-amber-400">evt_sweep_expired_carts</code> every 30s. You can also manually trigger the stored procedure here to instantly reclaim unpurchased items.
+            </p>
+          </div>
+          <div class="pt-4">
+            <button onclick="triggerCartSweeper()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium py-2.5 px-4 rounded-lg text-xs flex items-center justify-center space-x-2 transition">
+              <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i>
+              <span>Run sp_sweep_expired_reservations</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDIT LOGS TABLE -->
+      <div class="glass-card rounded-xl p-5 border border-slate-800 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-heading font-bold text-lg text-white flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-500"></i>
+            <span>Immutable Audit Logs (`order_logs`)</span>
+          </h3>
+          <span class="text-xs font-mono-code text-slate-400">Populated by Trigger `trg_order_audit_trail`</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono-code">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400">
+                <th class="pb-2">Log ID</th>
+                <th class="pb-2">Order ID</th>
+                <th class="pb-2">User ID</th>
+                <th class="pb-2">Action</th>
+                <th class="pb-2">Details</th>
+                <th class="pb-2">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody" class="divide-y divide-slate-800/60">
+              <!-- Injected via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: CHECKOUT CONFIRMATION -->
+  <div id="checkoutModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-6 border border-rose-500/30 space-y-5 animate-in fade-in duration-200">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+          </div>
+          <h3 class="font-heading font-bold text-lg text-white">Cart Held For You!</h3>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 text-xs space-y-2 font-mono-code">
+        <div class="flex justify-between"><span class="text-slate-400">Reservation ID:</span><span id="modalResId" class="text-rose-400 font-bold">#</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Product:</span><span id="modalProdName" class="text-white font-semibold"></span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Total Price:</span><span id="modalPrice" class="text-emerald-400 font-bold"></span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Reservation Window:</span><span class="text-amber-400">5:00 min remaining</span></div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
+
+  <!-- CLIENT-SIDE SCRIPT -->
+  <script>
+    let activeReservation = null;
+
+    // Initialize Lucide icons
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      loadProducts();
+      loadAdminData();
+    });
+
+    function switchTab(tab) {
+      document.getElementById('tab-shop').classList.toggle('hidden', tab !== 'shop');
+      document.getElementById('tab-simulation').classList.toggle('hidden', tab !== 'simulation');
+      document.getElementById('tab-admin').classList.toggle('hidden', tab !== 'admin');
+
+      ['shop', 'simulation', 'admin'].forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          btn.className = 'pb-3 border-b-2 border-rose-500 text-white flex items-center space-x-2';
+        } else {
+          btn.className = 'pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2';
+        }
+      });
+
+      if (tab === 'admin') loadAdminData();
+      lucide.createIcons();
+    }
+
+    function showToast(title, message, isError = false) {
+      const toast = document.createElement('div');
+      toast.className = `p-4 rounded-xl border ${isError ? 'bg-rose-950/90 border-rose-600 text-rose-200' : 'bg-slate-900/90 border-emerald-500 text-emerald-200'} shadow-xl backdrop-blur-md max-w-sm text-xs font-mono-code transition duration-300`;
+      toast.innerHTML = `<strong>${title}</strong><div class="mt-0.5 text-slate-300">${message}</div>`;
+      document.getElementById('toastContainer').appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/products');
+        const products = await res.json();
+        const grid = document.getElementById('productsGrid');
+        grid.innerHTML = '';
+
+        products.forEach(p => {
+          const isSoldOut = p.available_stock <= 0;
+          const pct = Math.round((p.available_stock / p.total_stock) * 100);
+
+          const card = document.createElement('div');
+          card.className = `glass-card rounded-2xl overflow-hidden border ${isSoldOut ? 'border-slate-800 opacity-70' : 'border-slate-700/60 hover:border-rose-500/40'} transition flex flex-col justify-between`;
+          
+          card.innerHTML = `
+            <div class="p-5 space-y-4">
+              <div class="flex justify-between items-start">
+                <span class="text-xs font-mono-code uppercase tracking-wider text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">${p.sku}</span>
+                <span class="text-xs font-mono-code px-2 py-0.5 rounded ${isSoldOut ? 'bg-rose-900/40 text-rose-400 border border-rose-800' : 'bg-emerald-900/40 text-emerald-400 border border-emerald-800'}">
+                  ${isSoldOut ? 'SOLD OUT' : 'LIVE STOCK'}
+                </span>
+              </div>
+              <div>
+                <h3 class="font-heading font-bold text-xl text-white">${p.name}</h3>
+                <p class="text-xs text-slate-400 mt-1 line-clamp-2">${p.description}</p>
+              </div>
+              <div class="space-y-1.5 pt-2">
+                <div class="flex justify-between text-xs font-mono-code">
+                  <span class="text-slate-400">Available Stock:</span>
+                  <span class="${isSoldOut ? 'text-rose-400' : 'text-emerald-400'} font-bold">${p.available_stock} / ${p.total_stock}</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full ${isSoldOut ? 'bg-rose-500' : 'bg-gradient-to-r from-emerald-500 to-rose-500'}" style="width: ${pct}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-5 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-slate-400 block font-mono-code">Price</span>
+                <span class="text-xl font-heading font-bold text-white">$${p.price}</span>
+              </div>
+              <button 
+                onclick="handleReserve(${p.product_id}, '${p.name.replace(/'/g, "\\'")}', ${p.price})"
+                ${isSoldOut ? 'disabled' : ''}
+                class="px-5 py-2.5 rounded-xl font-heading font-bold text-xs uppercase tracking-wider transition ${isSoldOut ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/50'}">
+                ${isSoldOut ? 'Out of Stock' : '⚡ Buy Now'}
+              </button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Failed to load products', err);
+      }
+    }
+
+    async function handleReserve(productId, name, price) {
+      const userId = document.getElementById('userSelector').value;
+      try {
+        const res = await fetch('/api/reserve', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ userId, productId, quantity: 1 })
+        });
+        const data = await res.json();
+        
+        if (data.status === 'SUCCESS') {
+          activeReservation = { id: data.reservationId, name, price, userId };
+          document.getElementById('modalResId').innerText = '#' + data.reservationId;
+          document.getElementById('modalProdName').innerText = name;
+          document.getElementById('modalPrice').innerText = '$' + price;
+          document.getElementById('checkoutModal').classList.remove('hidden');
+          loadProducts();
+        } else {
+          showToast('Reservation Denied', data.message || data.status, true);
+          loadProducts();
+        }
+      } catch (err) {
+        showToast('Network Error', err.message, true);
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('checkoutModal').classList.add('hidden');
+      activeReservation = null;
+    }
+
+    async function confirmCheckout() {
+      if (!activeReservation) return;
+      const btn = document.getElementById('modalConfirmBtn');
+      btn.innerText = 'Processing...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ userId: activeReservation.userId, reservationId: activeReservation.id })
+        });
+        const data = await res.json();
+
+        if (data.status === 'SUCCESS') {
+          showToast('Order Placed!', `Confirmed Order #${data.orderId}. Checked out successfully!`);
+          closeModal();
+          loadProducts();
+          loadAdminData();
+        } else {
+          showToast('Checkout Failed', data.message || data.status, true);
+        }
+      } catch (err) {
+        showToast('Error', err.message, true);
+      } finally {
+        btn.innerText = 'Confirm Purchase';
+        btn.disabled = false;
+      }
+    }
+
+      const btn = document.getElementById('modalConfirmBtn');
+      btn.innerText = 'Processing...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ userId: activeReservation.userId, reservationId: activeReservation.id })
+          body: JSON.stringify({ productId: parseInt(prodId), buyers: parseInt(buyers) })
+        });
+        const data = await res.json();
+
+        consoleBox.innerHTML += `<div class="text-slate-400">> Elapsed Time: ${data.elapsed} seconds. Initial stock was ${data.initialStock}.</div>`;
+
+        data.results.forEach(r => {
+          const isWon = r.status === 'SUCCESS';
+          const line = document.createElement('div');
+          line.className = isWon ? 'text-emerald-400 font-semibold' : 'text-slate-400';
+          line.innerText = `> Buyer #${String(r.thread).padStart(2, '0')} (User ${r.userId}): ${isWon ? '✅ WON (Hold #' + r.resId + ')' : '❌ SOLD OUT (' + r.message + ')'}`;
+          consoleBox.appendChild(line);
+        });
+
+        const summary = document.createElement('div');
+        summary.className = 'mt-3 p-2 rounded bg-slate-900 border border-slate-700 text-white font-bold';
+        summary.innerText = `[SUMMARY] Total Holds: ${data.successCount} | Rejected: ${data.outOfStockCount} | Final Stock: ${data.finalStock}`;
+        consoleBox.appendChild(summary);
+
+        badge.innerText = `Zero Oversell Guaranteed (${data.finalStock} left)`;
+        badge.classList.remove('hidden');
+
+        consoleBox.scrollTop = consoleBox.scrollHeight;
+        loadProducts();
+        loadAdminData();
+      } catch (err) {
+        consoleBox.innerHTML += `<div class="text-rose-400">> Simulation failed: ${err.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 fill-current"></i><span>Fire Concurrent Rush</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function loadAdminData() {
+      try {
+        const [trendsRes, logsRes] = await Promise.all([
+          fetch('/api/views/trending'),
+          fetch('/api/logs')
+        ]);
+        const trends = await trendsRes.json();
+        const logs = await logsRes.json();
+
+        // Populate Trending
+        const trendBody = document.getElementById('trendingTableBody');
+        trendBody.innerHTML = '';
+        trends.forEach(t => {
+          const row = document.createElement('tr');
+          row.className = 'hover:bg-slate-900/50';
+          row.innerHTML = `
+            <td class="py-2.5 text-white font-semibold">${t.product_name}</td>
+            <td class="py-2.5 text-slate-300">${t.available_stock} / ${t.total_stock}</td>
+            <td class="py-2.5 text-rose-400">${t.percent_claimed}%</td>
+            <td class="py-2.5 text-emerald-400">$${t.total_revenue_generated}</td>
+          `;
+          trendBody.appendChild(row);
+        });
+
+        // Populate Audit Logs
+        const logBody = document.getElementById('logsTableBody');
+        logBody.innerHTML = '';
+        logs.forEach(l => {
+          const row = document.createElement('tr');
+          row.className = 'hover:bg-slate-900/50';
+          row.innerHTML = `
+            <td class="py-2 text-slate-400">#${l.log_id}</td>
+            <td class="py-2 text-white font-bold">#${l.order_id}</td>
+            <td class="py-2 text-slate-300">User ${l.user_id}</td>
+            <td class="py-2 text-emerald-400">${l.action}</td>
+            <td class="py-2 text-slate-300 max-w-xs truncate">${l.details}</td>
+            <td class="py-2 text-slate-400">${new Date(l.logged_at).toLocaleTimeString()}</td>
+          `;
+          logBody.appendChild(row);
+        });
+      } catch (err) {
+        console.error('Failed to load admin metrics', err);
+      }
+    }
+
+    async function triggerCartSweeper() {
+      try {
+        const res = await fetch('/api/sweep', { method: 'POST' });
+        const data = await res.json();
+        showToast('Cart Sweeper Executed', `Reclaimed ${data.sweptCount} expired reservations back to inventory.`);
+        loadProducts();
+        loadAdminData();
+      } catch (err) {
+        showToast('Sweeper Error', err.message, true);
+      }
+    }
+  </script>
+</body>
+</html>
+
